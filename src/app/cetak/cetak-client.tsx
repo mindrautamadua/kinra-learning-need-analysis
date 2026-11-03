@@ -14,6 +14,15 @@ type Kertas = "A3" | "A4";
 // Kolom mengikuti template "Matriks Strategi-Kebutuhan" (Business Strategy tampil sebagai baris grup).
 // Field penilaian (jumlah peserta, level, prioritas R/K/U, metode, TW, PIC) tetap tersimpan, tidak dicetak.
 const KOLOM = 8;
+const KURANG: Record<string, string> = {
+  rjpp: "belum ditautkan ke prioritas RJPP",
+  posisi: "belum ada Key Position",
+  kompetensi: "belum ada Competency",
+  validasi: "menunggu validasi SME",
+  expected: "belum ada Expected Role",
+  gap: "belum ada Gap atau sebabnya",
+  ln: "belum ada Learning Need / intervensi",
+};
 const REK_PENDEK = { kuat: "Kuat", sedang: "Sedang", lemah: "Lemah" } as const;
 const PENANDA_TANGAN = [
   { peran: "Disusun oleh", jabatan: "Kepala Sub Bagian Sumber Daya Manusia" },
@@ -121,6 +130,13 @@ export function CetakClient({ data }: { data: Data }) {
   const pasangan = kelompok.flatMap((g) => g.caps.flatMap((x) => x.lns.map((ln) => ({ ln, c: x.c }))));
   const semuaLn = pasangan.map((x) => x.ln);
   const belumLengkap = pasangan.filter(({ ln, c }) => !checklist(ln, c).every((k) => k.ok)).length;
+  // Rincian butir checklist yang belum terpenuhi, agar jelas apa yang kurang (mis. "80 menunggu validasi SME").
+  const kekurangan = (() => {
+    const n = new Map<string, number>();
+    for (const { ln, c } of pasangan) for (const k of checklist(ln, c)) if (!k.ok) n.set(k.key, (n.get(k.key) ?? 0) + 1);
+    return [...n].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${KURANG[k] ?? k}`);
+  })();
+  const ketKurang = kekurangan.join(", ");
   const jumlahNk = semuaLn.filter((ln) => ln.sebab_gap === "non_kompetensi").length;
 
   const judulPendek = "Matriks Learning Needs Analysis · ALNA 2027 · PT KINRA";
@@ -173,7 +189,7 @@ export function CetakClient({ data }: { data: Data }) {
         <div className="tb-ket">
           {belumLengkap > 0 ? (
             <span className="tb-warn">
-              <TriangleAlert size={14} aria-hidden="true" /> {belumLengkap} dari {semuaLn.length} learning need belum memenuhi checklist pengisian (isian kosong tampil &quot;–&quot; di formulir).
+              <TriangleAlert size={14} aria-hidden="true" /> {belumLengkap} dari {semuaLn.length} learning need belum lengkap: {ketKurang}.
               Lengkapi lewat editor baris di <Link href="/matriks">Matriks LNA</Link>.
             </span>
           ) : (
@@ -226,7 +242,7 @@ export function CetakClient({ data }: { data: Data }) {
                 <th>Sumber data</th>
                 <td colSpan={3}>Aplikasi LNA KINRA: Kertas Kerja Workshop 3 (DSMK), nomenklatur jabatan KINRA, kamus kompetensi PTPN Group, RJPP KINRA 2026–2030</td>
                 <th>Status data</th>
-                <td>Per {dicetak} WIB{belumLengkap > 0 ? ` · ${belumLengkap} baris belum lengkap` : " · lengkap"}</td>
+                <td>Per {dicetak} WIB{belumLengkap > 0 ? ` · ${belumLengkap} baris belum lengkap (${ketKurang})` : " · lengkap"}</td>
               </tr>
             </tbody>
           </table>
