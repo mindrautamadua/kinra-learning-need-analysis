@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, ClipboardList, Layers, LayoutDashboard, Library, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { BookOpen, ClipboardList, Layers, LayoutDashboard, Library, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Presentation, X } from "lucide-react";
 import { keluar } from "@/app/login/actions";
 import { ThemeToggle } from "./theme-toggle";
 import { NamaPengisi } from "./pengisi";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/rekap", label: "Rekap Learning Needs", icon: Layers },
   { href: "/referensi", label: "Kamus & Jabatan", icon: Library },
   { href: "/pedoman", label: "Pedoman Pengisian", icon: BookOpen },
+  { href: "/presentasi", label: "Presentasi", icon: Presentation },
 ];
 
 export function AppShell({ children, ciutAwal = false }: { children: React.ReactNode; ciutAwal?: boolean }) {
