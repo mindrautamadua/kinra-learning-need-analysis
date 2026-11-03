@@ -25,6 +25,21 @@ def clean(s):
     return " ".join(str(s).split()).strip() if s is not None else None
 
 
+# Salah ketik pada sheet nomenklatur "Copy of PT KINRA" (dikonfirmasi pengguna 3 Nov 2026)
+KOREKSI = [
+    ("Produksi Kawanan", "Produksi Kawasan"), ("PRODUKSI KAWANAN", "PRODUKSI KAWASAN"),
+    ("ELEKTERIKAL", "ELEKTRIKAL"), ("Elekterikal", "Elektrikal"),
+]
+
+
+def koreksi(s):
+    for salah, benar in KOREKSI:
+        s = s.replace(salah, benar)
+    # Kurung tutup yang hilang, mis. "Air Bersih (IPAB" -> "Air Bersih (IPAB)"
+    if s.count("(") > s.count(")"):
+        s += ")"
+    return s
+
 wb = openpyxl.load_workbook(XLSX)
 sql = ["-- Dibangkitkan oleh scripts/generate_seed.py dari Kertas Kerja Workshop 3. Jangan diedit manual.", "begin;"]
 
@@ -59,13 +74,13 @@ for r in range(5, 96):
         if b.startswith("DIREKTORAT"):
             direktorat, divisi = b, None
         else:
-            divisi = b
+            divisi = koreksi(b)
     if c and d and str(d).replace(" ", "").startswith("BOD"):
         nama, level = clean(c), str(d).replace(" ", "")
         if (nama, level) in seen:
             continue
         seen.add((nama, level))
-        jabatan.append((kode.get(nama), nama, level, direktorat or "BOARD OF DIRECTORS", divisi or direktorat or "BOARD OF DIRECTORS"))
+        jabatan.append((kode.get(nama), koreksi(nama), level, direktorat or "BOARD OF DIRECTORS", divisi or direktorat or "BOARD OF DIRECTORS"))
 sql.append("insert into public.jabatan (id, kode, nama, level, direktorat, divisi) values")
 sql.append(",\n".join(f"({i}, {q(k)}, {q(n)}, {q(l)}, {q(dr)}, {q(dv)})" for i, (k, n, l, dr, dv) in enumerate(jabatan, 1)))
 sql.append("on conflict (id) do update set kode = excluded.kode, nama = excluded.nama, level = excluded.level, direktorat = excluded.direktorat, divisi = excluded.divisi;")
