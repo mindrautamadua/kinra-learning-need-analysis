@@ -5,15 +5,16 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Printer, TriangleAlert } from "lucide-react";
 import type { Capability, Jabatan, LearningNeed, PrioritasRjpp } from "@/lib/types";
 import {
-  gapLevel, KATEGORI_LABEL, kategoriPrioritas, KEKUATAN_LABEL, METODE, namaJabatan, penilaianLengkap, skorPrioritas, strategiPendek, teksKolomJ, waktu,
+  checklist, KEKUATAN_LABEL, namaJabatan, strategiPendek, teksKolomJ, waktu,
 } from "@/lib/domain";
 
 type Data = { capabilities: Capability[]; learningNeeds: LearningNeed[]; jabatan: Jabatan[]; prioritas: PrioritasRjpp[] };
 type Kertas = "A3" | "A4";
 
-const KOLOM = 20;
+// Kolom mengikuti template "Matriks Strategi-Kebutuhan" (Business Strategy tampil sebagai baris grup).
+// Field penilaian (jumlah peserta, level, prioritas R/K/U, metode, TW, PIC) tetap tersimpan, tidak dicetak.
+const KOLOM = 8;
 const REK_PENDEK = { kuat: "Kuat", sedang: "Sedang", lemah: "Lemah" } as const;
-const TW = ["I", "II", "III", "IV"];
 const PENANDA_TANGAN = [
   { peran: "Disusun oleh", jabatan: "Kepala Sub Bagian Sumber Daya Manusia" },
   { peran: "Diverifikasi oleh", jabatan: "Subject Matter Expert / Kepala Divisi terkait" },
@@ -61,34 +62,13 @@ function SelAnalisis({ ln, c, jmap }: { ln?: LearningNeed; c: Capability; jmap: 
     );
   }
 
-  const gap = gapLevel(ln);
-  const skor = skorPrioritas(ln);
-  const kat = kategoriPrioritas(skor);
-  const metode = METODE.filter((m) => ln.metode.includes(m.v)).map((m) => m.kode).join(" · ");
-  // Level dan metode tidak berlaku untuk intervensi non-pelatihan
-  const na = <span className="na">n/a</span>;
-
   return (
     <>
       <td><Nilai v={posisi.join("; ")} /></td>
-      <td className="angka"><Nilai v={ln.jumlah_peserta} /></td>
       <td><Nilai v={kompetensi} /></td>
       <td><Nilai v={ln.expected_role} /></td>
-      <td className="angka">{nk ? na : <Nilai v={ln.level_dibutuhkan} />}</td>
-      <td className="angka">{nk ? na : <Nilai v={ln.level_saat_ini} />}</td>
-      <td className={cx("angka", "gap", gap != null && gap >= 1 && "ada")}>{nk ? na : <Nilai v={gap} />}</td>
       <td><Nilai v={ln.gap} /></td>
-      <td className="angka sebab-gap"><Nilai v={ln.sebab_gap === "kompetensi" ? "K" : nk ? "NK" : null} /></td>
       <td className={cx(nk && "np")}><Nilai v={teksKolomJ(ln)} /></td>
-      <td className="angka"><Nilai v={ln.skor_relevansi} /></td>
-      <td className="angka"><Nilai v={ln.skor_kritikalitas} /></td>
-      <td className="angka"><Nilai v={ln.skor_urgensi} /></td>
-      <td className={cx("angka skor", kat && `kat-${kat}`)}>
-        {skor == null ? <Nilai v={null} /> : <><b>{skor}</b><div className="kat">{KATEGORI_LABEL[kat!]}</div></>}
-      </td>
-      <td className="angka">{nk ? na : <Nilai v={metode} />}</td>
-      <td className="angka"><Nilai v={ln.target_tw ? `TW ${TW[ln.target_tw - 1]}` : null} /></td>
-      <td><Nilai v={ln.pic} /></td>
     </>
   );
 }
@@ -138,19 +118,10 @@ export function CetakClient({ data }: { data: Data }) {
       .filter((g) => g.caps.length > 0);
   }, [data, strategi, kecualiTidakRelevan, daftarStrategi]);
 
-  const semuaLn = kelompok.flatMap((g) => g.caps.flatMap((x) => x.lns));
-  const belumLengkap = semuaLn.filter((ln) => !penilaianLengkap(ln)).length;
-  const ringkas = useMemo(() => {
-    const kat = { tinggi: 0, sedang: 0, rendah: 0 };
-    let peserta = 0, nk = 0;
-    for (const ln of semuaLn) {
-      const k = kategoriPrioritas(skorPrioritas(ln));
-      if (k) kat[k]++;
-      peserta += ln.jumlah_peserta ?? 0;
-      if (ln.sebab_gap === "non_kompetensi") nk++;
-    }
-    return { kat, peserta, nk };
-  }, [semuaLn]);
+  const pasangan = kelompok.flatMap((g) => g.caps.flatMap((x) => x.lns.map((ln) => ({ ln, c: x.c }))));
+  const semuaLn = pasangan.map((x) => x.ln);
+  const belumLengkap = pasangan.filter(({ ln, c }) => !checklist(ln, c).every((k) => k.ok)).length;
+  const jumlahNk = semuaLn.filter((ln) => ln.sebab_gap === "non_kompetensi").length;
 
   const judulPendek = "Matriks Learning Needs Analysis · ALNA 2027 · PT KINRA";
   const css = `
@@ -202,8 +173,8 @@ export function CetakClient({ data }: { data: Data }) {
         <div className="tb-ket">
           {belumLengkap > 0 ? (
             <span className="tb-warn">
-              <TriangleAlert size={14} aria-hidden="true" /> {belumLengkap} dari {semuaLn.length} learning need belum lengkap penilaiannya (tampil &quot;–&quot; di formulir).
-              Lengkapi lewat editor baris di <Link href="/matriks">Matriks LNA</Link>, bagian K.
+              <TriangleAlert size={14} aria-hidden="true" /> {belumLengkap} dari {semuaLn.length} learning need belum memenuhi checklist pengisian (isian kosong tampil &quot;–&quot; di formulir).
+              Lengkapi lewat editor baris di <Link href="/matriks">Matriks LNA</Link>.
             </span>
           ) : (
             <span>Semua {semuaLn.length} learning need sudah lengkap.</span>
@@ -249,11 +220,7 @@ export function CetakClient({ data }: { data: Data }) {
               </tr>
               <tr>
                 <th>Cakupan</th>
-                <td>{kelompok.reduce((n, g) => n + g.caps.length, 0)} capability · {semuaLn.length} learning need · {ringkas.nk} intervensi non-pelatihan</td>
-                <th>Prioritas</th>
-                <td>Tinggi {ringkas.kat.tinggi} · Sedang {ringkas.kat.sedang} · Rendah {ringkas.kat.rendah}</td>
-                <th>Total peserta</th>
-                <td>{ringkas.peserta.toLocaleString("id-ID")} orang (jumlah per baris, bisa beririsan)</td>
+                <td colSpan={5}>{kelompok.reduce((n, g) => n + g.caps.length, 0)} capability · {semuaLn.length} learning need · {jumlahNk} intervensi non-pelatihan</td>
               </tr>
               <tr>
                 <th>Sumber data</th>
@@ -269,38 +236,12 @@ export function CetakClient({ data }: { data: Data }) {
           <h2><span className="hrf">B</span> Keterangan kode dan skala</h2>
           <div className="skala">
             <div className="skala-kotak">
-              <h3>Level kemahiran (kolom 8–10)</h3>
-              <ol className="lvl">
-                <li><b>1 Dasar</b>: mengenal konsep, perlu bimbingan penuh</li>
-                <li><b>2 Berkembang</b>: menerapkan tugas rutin dengan bimbingan</li>
-                <li><b>3 Mandiri</b>: menerapkan secara mandiri dan konsisten</li>
-                <li><b>4 Mahir</b>: menangani kasus kompleks, membimbing orang lain</li>
-                <li><b>5 Ahli</b>: menjadi rujukan, menetapkan standar dan inovasi</li>
-              </ol>
-              <p>Gap = dibutuhkan − saat ini; gap ≥ 1 ditebalkan. <b>n/a</b> = tidak berlaku untuk intervensi non-pelatihan.</p>
-            </div>
-            <div className="skala-kotak">
-              <h3>Sebab gap (kolom 12) dan kompetensi (kolom 6)</h3>
-              <p><b>K</b> kompetensi: kurang pengetahuan, keterampilan, atau sikap; dijawab dengan learning need.</p>
-              <p><b>NK</b> non-kompetensi: proses, sistem, alat, struktur, atau insentif; kolom 13 berisi intervensi non-pelatihan.</p>
+              <h3>Kode pada kolom Competency</h3>
               <p><b>H</b> hard/teknis · <b>L</b> leadership · <b>U</b> usulan baru · <b>DSMK Kuat/Sedang/Lemah</b> = sama dengan usulan DSMK dan tingkat rekomendasinya · <b>Diganti</b> = diganti SDM/SME · <b>✓ SME</b> = divalidasi SME.</p>
             </div>
             <div className="skala-kotak">
-              <h3>Prioritas (kolom 14–17)</h3>
-              <table className="tbl-mini">
-                <thead><tr><th /><th>1</th><th>2</th><th>3</th></tr></thead>
-                <tbody>
-                  <tr><th>R Relevansi strategi</th><td>pendukung</td><td>terkait langsung</td><td>inti RJPP</td></tr>
-                  <tr><th>K Kritikalitas</th><td>dampak kecil</td><td>dampak unit</td><td>dampak korporat</td></tr>
-                  <tr><th>U Urgensi</th><td>&gt; 12 bulan</td><td>6–12 bulan</td><td>&lt; 6 bulan</td></tr>
-                </tbody>
-              </table>
-              <p>Skor = R × K × U (1–27): <b>Tinggi ≥ 12</b> · <b>Sedang 6–9</b> · <b>Rendah ≤ 4</b>.</p>
-            </div>
-            <div className="skala-kotak">
-              <h3>Metode 70:20:10 (kolom 18) dan rencana</h3>
-              {METODE.map((m) => <p key={m.v}><b>{m.kode}</b> {m.label}: {m.ket}.</p>)}
-              <p><b>TW</b> = triwulan pelaksanaan 2027. <b>PIC</b> = penanggung jawab pelaksanaan.</p>
+              <h3>Kolom Learning Need</h3>
+              <p>Diisi hanya bila gap disebabkan kompetensi. Bila gap bersebab lain (proses, sistem, alat, struktur, insentif), tertulis <b>non-pelatihan</b> beserta intervensi yang disarankan.</p>
               <p><b>–</b> = belum diisi di aplikasi.</p>
             </div>
           </div>
@@ -310,34 +251,22 @@ export function CetakClient({ data }: { data: Data }) {
           <h2><span className="hrf">C</span> Matriks strategi ke learning needs</h2>
           <table className="matriks">
             <colgroup>
-              {[2.6, 9, 9.5, 9, 2.8, 9, 10.5, 2.6, 2.6, 2.6, 9, 2.8, 11.2, 2.2, 2.2, 2.2, 3.4, 3.6, 3.2, 4.2].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+              {[3, 11, 11, 13, 13, 15, 15, 19].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
             </colgroup>
             <thead>
               <tr className="grup">
-                <th colSpan={3} className="g-dsmk">Konteks strategis (DSMK)</th>
-                <th colSpan={9} className="g-sdm">Analisis kompetensi dan gap (SDM &amp; SME)</th>
-                <th colSpan={8} className="g-rencana">Kebutuhan, prioritas, dan rencana</th>
+                <th colSpan={3} className="g-dsmk">Diisi oleh DSMK</th>
+                <th colSpan={5} className="g-sdm">Diisi oleh SDM &amp; SME</th>
               </tr>
               <tr className="judul">
-                <th rowSpan={2}>No</th>
-                <th rowSpan={2}>Strategic Initiative</th>
-                <th rowSpan={2}>Required Capability</th>
-                <th rowSpan={2}>Key Position / Target Population</th>
-                <th rowSpan={2}>Jml org</th>
-                <th rowSpan={2}>Competency</th>
-                <th rowSpan={2}>Expected Role / Performance</th>
-                <th colSpan={3}>Level kemahiran</th>
-                <th rowSpan={2}>Gap Competency (uraian)</th>
-                <th rowSpan={2}>Sebab gap</th>
-                <th rowSpan={2}>Learning Need / Intervensi</th>
-                <th colSpan={4}>Prioritas</th>
-                <th rowSpan={2}>Metode 70:20:10</th>
-                <th rowSpan={2}>Target (TW)</th>
-                <th rowSpan={2}>PIC</th>
-              </tr>
-              <tr className="judul sub">
-                <th>Butuh</th><th>Kini</th><th>Gap</th>
-                <th>R</th><th>K</th><th>U</th><th>Skor</th>
+                <th>No</th>
+                <th>Strategic Initiative</th>
+                <th>Required Capability</th>
+                <th>Key Position / Target Population</th>
+                <th>Competency</th>
+                <th>Expected Role / Performance</th>
+                <th>Gap Competency</th>
+                <th>Learning Need</th>
               </tr>
               <tr className="nomor">
                 {Array.from({ length: KOLOM }, (_, i) => <th key={i}>{i + 1}</th>)}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { Check, ChevronLeft, ChevronRight, Circle, Copy, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
 import type { DataLNA } from "@/lib/data";
 import type { Capability, LearningNeed, PrioritasRjpp, SebabGap, SumberKompetensi } from "@/lib/types";
-import { checklist, gapLevel, KATEGORI_LABEL, kategoriPrioritas, KEKUATAN_LABEL, METODE, skorPrioritas, statusLN, URUT_PILAR_RJPP, waktu } from "@/lib/domain";
+import { checklist, KEKUATAN_LABEL, statusLN, URUT_PILAR_RJPP, waktu } from "@/lib/domain";
 import { hapusLearningNeed, simpanCapability, simpanLearningNeed, tambahLearningNeed, type PatchLN } from "../actions";
 import { bacaPengisi } from "@/components/pengisi";
 import { KekuatanChip, StatusChip, cx } from "@/components/ui";
@@ -265,51 +265,8 @@ export function Editor(p: Props) {
               </Step>
             )}
 
-            {/* K. Penilaian dan rencana (kolom formulir cetak 5, 8–10, 14–20) */}
-            <Step no="K" ok={ok.penilaian} judul="Penilaian, prioritas, dan rencana"
-              hint={nonKomp ? "Untuk intervensi non-pelatihan: jumlah orang terdampak, prioritas, target triwulan, dan PIC." : "Dipakai untuk menyusun learning priorities. Skor prioritas dan gap level dihitung otomatis."}>
-              <div className="field">
-                <label htmlFor="jml">Jumlah peserta / orang terdampak</label>
-                <input id="jml" className="inp" type="number" min={0} style={{ width: 140 }} value={d.jumlah_peserta ?? ""}
-                  onChange={(e) => set("jumlah_peserta", e.target.value === "" ? null : Math.max(0, Math.floor(Number(e.target.value))))} />
-              </div>
-              {!nonKomp && (
-                <>
-                  <Skala label="Level kemahiran dibutuhkan" maks={5} nilai={d.level_dibutuhkan} onChange={(v) => set("level_dibutuhkan", v)}
-                    ket={["Dasar", "Berkembang", "Mandiri", "Mahir", "Ahli"]} />
-                  <Skala label="Level kemahiran saat ini" maks={5} nilai={d.level_saat_ini} onChange={(v) => set("level_saat_ini", v)}
-                    ket={["Dasar", "Berkembang", "Mandiri", "Mahir", "Ahli"]} />
-                  {gapLevel(d) != null && (
-                    <div className="muted small">Gap level: <b style={{ color: "var(--ink)" }}>{gapLevel(d)}</b>{gapLevel(d)! < 1 && " (tidak ada gap level; pertimbangkan ulang learning need ini)"}</div>
-                  )}
-                </>
-              )}
-              <Skala label="R · Relevansi strategi" maks={3} nilai={d.skor_relevansi} onChange={(v) => set("skor_relevansi", v)} ket={["Pendukung", "Terkait langsung", "Inti RJPP"]} />
-              <Skala label="K · Kritikalitas" maks={3} nilai={d.skor_kritikalitas} onChange={(v) => set("skor_kritikalitas", v)} ket={["Dampak kecil", "Dampak unit", "Dampak korporat"]} />
-              <Skala label="U · Urgensi" maks={3} nilai={d.skor_urgensi} onChange={(v) => set("skor_urgensi", v)} ket={["> 12 bulan", "6–12 bulan", "< 6 bulan"]} />
-              <div className="muted small">
-                Skor prioritas (R × K × U):{" "}
-                {skorPrioritas(d) == null ? "–" : <b style={{ color: "var(--ink)" }}>{skorPrioritas(d)} · {KATEGORI_LABEL[kategoriPrioritas(skorPrioritas(d))!]}</b>}
-              </div>
-              {!nonKomp && (
-                <div className="field">
-                  <div className="lbl small" style={{ fontWeight: 600 }}>Metode pembelajaran 70:20:10 (boleh lebih dari satu)</div>
-                  <div className="seg" role="group" aria-label="Metode pembelajaran">
-                    {METODE.map((m) => (
-                      <button key={m.v} type="button" title={m.ket} aria-pressed={d.metode.includes(m.v)}
-                        onClick={() => set("metode", d.metode.includes(m.v) ? d.metode.filter((x) => x !== m.v) : [...d.metode, m.v])}>
-                        {m.kode} · {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <Skala label="Target pelaksanaan (triwulan 2027)" maks={4} nilai={d.target_tw} onChange={(v) => set("target_tw", v)} ket={["TW I", "TW II", "TW III", "TW IV"]} />
-              <div className="field">
-                <label htmlFor="pic">PIC (penanggung jawab)</label>
-                <input id="pic" className="inp" placeholder="Contoh: Kasubag SDM" value={d.pic ?? ""} onChange={(e) => set("pic", e.target.value)} />
-              </div>
-            </Step>
+            {/* Field penilaian (jumlah peserta, level, prioritas R/K/U, metode, TW, PIC) disembunyikan: tidak ada di template Workshop 3.
+                Prioritas dipakai lagi di Tahap 4; datanya tetap tersimpan dan ikut tersimpan ulang apa adanya. */}
 
             <div className="field">
               <label htmlFor="catatan">Catatan workshop (opsional)</label>
@@ -344,21 +301,6 @@ export function Editor(p: Props) {
       </aside>
       {pesan && <div className={cx("toast", pesan.err && "err")} role="status">{pesan.teks}</div>}
     </>
-  );
-}
-
-function Skala({ label, maks, nilai, onChange, ket }: { label: string; maks: number; nilai: number | null; onChange: (v: number | null) => void; ket: string[] }) {
-  return (
-    <div className="field">
-      <div className="lbl small" style={{ fontWeight: 600 }}>{label}</div>
-      <div className="seg small" role="group" aria-label={label}>
-        {Array.from({ length: maks }, (_, i) => i + 1).map((n) => (
-          <button key={n} type="button" aria-pressed={nilai === n} onClick={() => onChange(nilai === n ? null : n)} title={ket[n - 1]}>
-            {n} · {ket[n - 1]}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import { ArrowLeft, Printer } from "lucide-react";
 import type { Capability, Jabatan, LearningNeed, PrioritasRjpp } from "@/lib/types";
-import { kategoriPrioritas, skorPrioritas, statusLN, strategiPendek, waktu } from "@/lib/domain";
+import { statusLN, strategiPendek, waktu } from "@/lib/domain";
 
 type Data = { capabilities: Capability[]; learningNeeds: LearningNeed[]; jabatan: Jabatan[]; prioritas: PrioritasRjpp[] };
 type Kertas = "A3" | "A4";
@@ -17,12 +17,7 @@ const LUAR = "Posisi lain (di luar nomenklatur KINRA)";
 function hitung(lns: { l: LearningNeed; c: Capability }[], daftarStrategi: string[]) {
   const perStrategi = daftarStrategi.map((s) => lns.filter((x) => x.c.strategi === s).length);
   const nk = lns.filter((x) => x.l.sebab_gap === "non_kompetensi").length;
-  const kat = { tinggi: 0, sedang: 0, rendah: 0 };
-  for (const x of lns) {
-    const k = kategoriPrioritas(skorPrioritas(x.l));
-    if (k) kat[k]++;
-  }
-  return { perStrategi, total: lns.length, pelatihan: lns.length - nk, nk, kat };
+  return { perStrategi, total: lns.length, pelatihan: lns.length - nk, nk };
 }
 
 const Angka = ({ n, maks }: { n: number; maks?: number }) =>
@@ -91,7 +86,7 @@ export function CetakJabatanClient({ data }: { data: Data }) {
   const maks = Math.max(1, ...kelompok.flatMap((g) => g.baris.flatMap((b) => hitung(b.lns, daftarStrategi).perStrategi)));
   const total = hitung(dipakai, daftarStrategi);
   const nS = daftarStrategi.length;
-  const kolom = 3 + nS + 3 + 3;
+  const kolom = 3 + nS + 3;
 
   const css = `
     @page {
@@ -158,15 +153,14 @@ export function CetakJabatanClient({ data }: { data: Data }) {
               <col style={{ width: "3%" }} />
               <col style={{ width: "22%" }} />
               <col style={{ width: "8%" }} />
-              {daftarStrategi.map((s) => <col key={s} style={{ width: `${40 / nS}%` }} />)}
-              {Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: `${27 / 6}%` }} />)}
+              {daftarStrategi.map((s) => <col key={s} style={{ width: `${49 / nS}%` }} />)}
+              {Array.from({ length: 3 }, (_, i) => <col key={i} style={{ width: `${18 / 3}%` }} />)}
             </colgroup>
             <thead>
               <tr className="grup">
                 <th colSpan={3} className="g-dsmk">Key Position</th>
                 <th colSpan={nS} className="g-sdm">Jumlah learning need per Business Strategy</th>
                 <th colSpan={3} className="g-rencana">Jenis</th>
-                <th colSpan={3} className="g-rencana">Prioritas</th>
               </tr>
               <tr className="judul">
                 <th>No</th>
@@ -176,9 +170,6 @@ export function CetakJabatanClient({ data }: { data: Data }) {
                 <th>Total</th>
                 <th>Pelatihan</th>
                 <th>Non-pelatihan</th>
-                <th>Tinggi</th>
-                <th>Sedang</th>
-                <th>Rendah</th>
               </tr>
             </thead>
             <tbody>
@@ -203,9 +194,6 @@ export function CetakJabatanClient({ data }: { data: Data }) {
                           <td className="angka skor"><b>{h.total}</b></td>
                           <td className="angka"><Angka n={h.pelatihan} /></td>
                           <td className="angka"><Angka n={h.nk} /></td>
-                          <td className="angka"><Angka n={h.kat.tinggi} /></td>
-                          <td className="angka"><Angka n={h.kat.sedang} /></td>
-                          <td className="angka"><Angka n={h.kat.rendah} /></td>
                         </tr>
                       );
                     })}
@@ -220,17 +208,13 @@ export function CetakJabatanClient({ data }: { data: Data }) {
                   <td className="angka skor"><b>{total.total}</b></td>
                   <td className="angka skor"><b>{total.pelatihan}</b></td>
                   <td className="angka skor"><b>{total.nk}</b></td>
-                  <td className="angka skor"><b>{total.kat.tinggi}</b></td>
-                  <td className="angka skor"><b>{total.kat.sedang}</b></td>
-                  <td className="angka skor"><b>{total.kat.rendah}</b></td>
                 </tr>
               )}
             </tbody>
           </table>
           <p className="catatan-kaki">
             Satu learning need bisa menyasar beberapa jabatan, sehingga dihitung di setiap jabatan tersebut; baris total dan subtotal unit menghitung learning need unik (tidak
-            dijumlah per baris). Prioritas dihitung dari skor R × K × U (Tinggi ≥ 12 · Sedang 6–9 · Rendah ≤ 4); learning need yang belum diberi skor tidak masuk kolom
-            prioritas. Warna sel strategi makin pekat makin banyak learning need. Strategi: {daftarStrategi.map((s, i) => `${i + 1} ${s}`).join(" · ")}. Dicetak dari
+            dijumlah per baris). Warna sel strategi makin pekat makin banyak learning need. Strategi: {daftarStrategi.map((s, i) => `${i + 1} ${s}`).join(" · ")}. Dicetak dari
             aplikasi LNA KINRA, {dicetak} WIB.
           </p>
         </section>

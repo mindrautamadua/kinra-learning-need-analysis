@@ -50,7 +50,6 @@ export function checklist(ln: LearningNeed, cap?: Pick<Capability, "prioritas_rj
     nonKomp
       ? { key: "ln", label: "Intervensi non-pelatihan dituliskan", ok: ada(ln.intervensi_non_pelatihan) }
       : { key: "ln", label: "Learning Need: topik + populasi + cakupan", ok: ada(ln.learning_need) },
-    { key: "penilaian", label: nonKomp ? "Jumlah peserta, prioritas, target TW, dan PIC terisi" : "Jumlah peserta, level, prioritas, metode, target TW, dan PIC terisi", ok: penilaianLengkap(ln) },
   ];
 }
 
@@ -87,8 +86,7 @@ export function statusLN(ln: LearningNeed, cap: Capability | undefined): Status 
   const cek = checklist(ln, cap);
   const terisi =
     ln.jabatan_ids.length > 0 || ada(ln.posisi_lain) || ada(ln.expected_role) || ada(ln.gap) || ada(ln.learning_need) ||
-    ada(ln.intervensi_non_pelatihan) || ln.kompetensi_divalidasi || ln.jumlah_peserta != null || ln.level_dibutuhkan != null ||
-    ln.skor_relevansi != null || ln.metode.length > 0 || ln.target_tw != null || ada(ln.pic);
+    ada(ln.intervensi_non_pelatihan) || ln.kompetensi_divalidasi;
   if (cek.every((c) => c.ok)) return "lengkap";
   return terisi ? "sebagian" : "belum";
 }
